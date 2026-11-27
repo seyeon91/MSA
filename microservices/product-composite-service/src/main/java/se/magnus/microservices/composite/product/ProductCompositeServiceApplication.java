@@ -5,16 +5,22 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 @SpringBootApplication
 @ComponentScan("se.magnus")
 public class ProductCompositeServiceApplication {
+
+  private static final Logger LOG = LoggerFactory.getLogger(ProductCompositeServiceApplication.class);
 
   @Value("${api.common.version}")         String apiVersion;
   @Value("${api.common.title}")           String apiTitle;
@@ -27,6 +33,11 @@ public class ProductCompositeServiceApplication {
   @Value("${api.common.contact.name}")    String apiContactName;
   @Value("${api.common.contact.url}")     String apiContactUrl;
   @Value("${api.common.contact.email}")   String apiContactEmail;
+
+  @Bean
+  public WebClient.Builder loadBalancedWebClientBuilder() {
+    return WebClient.builder();
+  }
 
   @Bean
   public OpenAPI getOpenApiDocumentation() {
@@ -47,9 +58,21 @@ public class ProductCompositeServiceApplication {
         .url(apiExternalDocUrl));
   }
 
+  private final Integer threadPoolSize;
+  private final Integer taskQueueSize;
+
+  public ProductCompositeServiceApplication(
+    @Value("${app.threadPoolSize:10}") Integer threadPoolSize,
+    @Value("${app.taskQueueSize:100}") Integer taskQueueSize
+  ) {
+    this.threadPoolSize = threadPoolSize;
+    this.taskQueueSize = taskQueueSize;
+  }
+
   @Bean
-  RestTemplate restTemplate() {
-    return new RestTemplate();
+  public Scheduler publishEventScheduler() {
+    LOG.info("Creates a messagingScheduler with connectionPoolSize = {}", threadPoolSize);
+    return Schedulers.newBoundedElastic(threadPoolSize, taskQueueSize, "publish-pool");
   }
 
   public static void main(String[] args) {
