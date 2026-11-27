@@ -1,0 +1,9 @@
+spring.jackson.use-jackson2-defaults: true
+
+server.port: 7002
+spring.web.error.include-message: always
+
+logging:
+  level:
+    root: INFO
+    se.magnus: DEBUG
