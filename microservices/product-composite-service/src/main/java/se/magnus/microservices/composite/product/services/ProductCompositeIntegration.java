@@ -13,6 +13,8 @@ import org.springframework.boot.health.contributor.Health;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -174,8 +176,11 @@ public class ProductCompositeIntegration implements ProductService, Recommendati
 
   private void sendMessage(String bindingName, Event event) {
     LOG.debug("Sending a {} message to {}", event.getEventType(), bindingName);
+    Message message = MessageBuilder.withPayload(event)
+      .setHeader("partitionKey", event.getKey())
+      .build();
     StreamBridge streamBridge = applicationContext.getBean(StreamBridge.class);
-    boolean sent = streamBridge.send(bindingName, event);
+    boolean sent = streamBridge.send(bindingName, message);
     if (!sent) {
       throw new IllegalStateException("Failed to send message to binding: " + bindingName);
     }
